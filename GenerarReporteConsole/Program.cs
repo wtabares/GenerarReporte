@@ -13,8 +13,11 @@ namespace GenerarReporteConsole
 
 		public const string tag840 = @"BQT";
 		public const string tag843 = @"BQR";
-		public const string tag850 = @"BEG";
+		public const string tag850 = @"BEGS";
 
+		public const string eol840 = @"^";
+		public const string eol843 = @"*";
+		public const string eol850 = @"*";
 
 		static int Main(string[] args)
         {
@@ -68,6 +71,7 @@ namespace GenerarReporteConsole
 			List<string> current = new List<string>();
 
 			int position;
+			int endPosition;
 
 			try
 			{
@@ -75,6 +79,9 @@ namespace GenerarReporteConsole
 				// Open the file text using a stream reader.
 				foreach (var line in File.ReadAllLines(pathFile))
 				{
+					position = 0;
+					endPosition = 0;
+
 					// obtener numero de control
 					if (currentLine == 2)
                     {
@@ -82,18 +89,27 @@ namespace GenerarReporteConsole
 					}
 					if (line.Contains(tag))
 					{
-						if ("BQT".Equals(tag) || "BQR".Equals(tag))
+						if (tag840.Equals(tag))
                         {
-							// logica para leer prop 840 y 843
-							// current.Add(line.Substring(line.Length - 12, 11));
+							// logica para leer prop 840
 							position = line.IndexOf(tag);
-							current.Add(line.Substring(position + 73, 11));
+							endPosition = line.IndexOf(eol840);
+							current.Add(line.Substring(position + 73, endPosition - 73));
 						}
-						else if ("BEG".Equals(tag))
+						else if (tag843.Equals(tag))
+						{
+							// logica para leer prop 843
+							position = line.IndexOf(tag);
+							endPosition = line.IndexOf(eol843);
+							current.Add(line.Substring(position + 73, endPosition - 73));
+						}
+
+						else if (tag850.Equals(tag))
 						{
 							// agregar logica para prop 850 - BEG)
-							position = line.IndexOf("BEG");
-							current.Add(line.Substring(position + 65, 8));
+							position = line.IndexOf(tag);
+							endPosition = line.IndexOf(eol850) - 2;
+							current.Add(line.Substring(position + 65, endPosition - 65));
 						}
 					}
 					currentLine++;
@@ -103,7 +119,6 @@ namespace GenerarReporteConsole
 			catch (IOException e)
 			{
 				Console.WriteLine("The file could not be read: {0}", e.Message);
-				Console.WriteLine(e.Message);
 			}
 		}
 
@@ -116,12 +131,12 @@ namespace GenerarReporteConsole
 			{
 				if (lin == 1)
                 {
-					Console.WriteLine("{0}, {1}, {2}, {3}", fileName, lastMod, noControl, item);
+					Console.WriteLine("{0},{1},{2},{3}", fileName, lastMod, noControl, item.Trim());
 					lin++;
 				}
 				else
                 {
-					Console.WriteLine(", , , {0}", item);
+					Console.WriteLine(",,,{0}", item.Trim());
 				}
 			}
 			DisplayBreak('*');
