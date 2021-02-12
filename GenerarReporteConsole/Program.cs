@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace GenerarReporteConsole
 {
@@ -13,48 +14,52 @@ namespace GenerarReporteConsole
 
 		public const string tag840 = @"BQT";
 		public const string tag843 = @"BQR";
-		public const string tag850 = @"BEGS";
-
-		public const string eol840 = @"^";
-		public const string eol843 = @"*";
-		public const string eol850 = @"*";
+		public const string tag850 = @"BEG";
 
 		static int Main(string[] args)
         {
-			// revisamos si los argumentos traen la fecha
-			if (args.Length == 0)
+			try
             {
-				System.Console.WriteLine("FORMA DE USO: GenerarReporteConsole <fechaConsulta>");
-				return 1;
-            }
+				string dateInput;
+				// revisamos si los argumentos traen la fecha
+				if (args.Length == 0)
+				{
+					dateInput = DateTime.Today.ToString();
+				}
+				else
+				{
+					dateInput = args[0];
+				}
 
-			string dateInput = args[0];
-			ProcesarDirectorio(folder840Path, DateTime.Parse(dateInput), tag840);
-			DisplayBreak('>');
-			DisplayBreak('>');
-			ProcesarDirectorio(folder843Path, DateTime.Parse(dateInput), tag843);
-			DisplayBreak('>');
-			DisplayBreak('>');
-			ProcesarDirectorio(folder850Path, DateTime.Parse(dateInput), tag850);
-			return 0;
-        }
+				ProcesarDirectorio(folder840Path, DateTime.Parse(dateInput), tag840);
+				DisplayBreak('>');
+				DisplayBreak('>');
+				ProcesarDirectorio(folder843Path, DateTime.Parse(dateInput), tag843);
+				DisplayBreak('>');
+				DisplayBreak('>');
+				ProcesarDirectorio(folder850Path, DateTime.Parse(dateInput), tag850);
+				return 0;
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("Error: {0}", e.Message);
+				return -1;
+			}
+		}
 
 		static void ProcesarDirectorio(string path, DateTime date, string tag)
         {
 			try
             {
-				string[] files = Directory.GetFiles(path);
-				DateTime fechaArchivo;
-				int processFile ;
+				// filtrar solo los archivos de la fecha solicitada y ordenar por fecha
+				string[] files = Directory.GetFiles(path)
+					.Where(file => new FileInfo(file).LastWriteTime.Date == date.Date)
+					.OrderBy(file => File.GetLastWriteTime(file))
+					.ToArray();
 
 				foreach (string file in files)
                 {
-					fechaArchivo = File.GetLastWriteTime(file).Date;
-					processFile = date.Date.CompareTo(fechaArchivo);
-					if (processFile == 0)
-					{
-						ReadFile(file, tag);
-					}
+					ReadFile(file, tag);
 				}
             }
 			catch (Exception e)
@@ -70,18 +75,12 @@ namespace GenerarReporteConsole
 			DateTime lastMod = File.GetLastWriteTime(pathFile);
 			List<string> current = new List<string>();
 
-			int position;
-			int endPosition;
-
 			try
 			{
 				int currentLine = 1;
 				// Open the file text using a stream reader.
 				foreach (var line in File.ReadAllLines(pathFile))
 				{
-					position = 0;
-					endPosition = 0;
-
 					// obtener numero de control
 					if (currentLine == 2)
                     {
@@ -92,24 +91,24 @@ namespace GenerarReporteConsole
 						if (tag840.Equals(tag))
                         {
 							// logica para leer prop 840
-							position = line.IndexOf(tag);
-							endPosition = line.IndexOf(eol840);
-							current.Add(line.Substring(position + 73, endPosition - 73));
+							IEnumerable<string> tokens =
+								!string.IsNullOrEmpty(line) ? line.Split(' ', StringSplitOptions.RemoveEmptyEntries) : Enumerable.Empty<string>();
+							string token = tokens.Last();
+							current.Add(token.Substring(0, token.Length-1));
 						}
 						else if (tag843.Equals(tag))
 						{
 							// logica para leer prop 843
-							position = line.IndexOf(tag);
-							endPosition = line.IndexOf(eol843);
-							current.Add(line.Substring(position + 73, endPosition - 73));
+							IEnumerable<string> tokens =
+								!string.IsNullOrEmpty(line) ? line.Split(' ', StringSplitOptions.RemoveEmptyEntries) : Enumerable.Empty<string>();
+							string token = tokens.Last();
+							current.Add(token.Substring(0, token.Length - 1));
 						}
-
 						else if (tag850.Equals(tag))
 						{
 							// agregar logica para prop 850 - BEG)
-							position = line.IndexOf(tag);
-							endPosition = line.IndexOf(eol850) - 2;
-							current.Add(line.Substring(position + 65, endPosition - 65));
+							string token = !string.IsNullOrEmpty(line) ? line.Substring(65, 30) : "";
+							current.Add(token.Trim());
 						}
 					}
 					currentLine++;
@@ -125,18 +124,27 @@ namespace GenerarReporteConsole
 
 		public static void DisplayData(string fileName, string lastMod, string noControl, List<string> props)
         {
-			// Show content
-			int lin = 1;
-			foreach (var item in props)
-			{
-				if (lin == 1)
-                {
-					Console.WriteLine("{0},{1},{2},{3}", fileName, lastMod, noControl, item.Trim());
-					lin++;
-				}
-				else
-                {
-					Console.WriteLine(",,,{0}", item.Trim());
+			bool isEmpty = props.Count == 0;
+
+			if (isEmpty)
+            {
+				Console.WriteLine("{0},{1},{2},{3}", fileName, lastMod, noControl, "NO DATA");
+			}
+			else
+            {
+				// Show content
+				int lin = 1;
+				foreach (var item in props)
+				{
+					if (lin == 1)
+					{
+						Console.WriteLine("{0},{1},{2},{3}", fileName, lastMod, noControl, item.Trim());
+						lin++;
+					}
+					else
+					{
+						Console.WriteLine(",,,{0}", item.Trim());
+					}
 				}
 			}
 			DisplayBreak('*');
